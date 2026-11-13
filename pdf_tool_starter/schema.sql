@@ -1,0 +1,98 @@
+CREATE DATABASE IF NOT EXISTS pdf_tool_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE pdf_tool_db;
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(60) NOT NULL UNIQUE,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  role ENUM('user', 'pro', 'admin') NOT NULL DEFAULT 'user',
+  vip_expires_at DATETIME NULL DEFAULT NULL,
+  status ENUM('active', 'banned') NOT NULL DEFAULT 'active',
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS documents (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ original_name VARCHAR(255) NOT NULL,
+ stored_name VARCHAR(255) NOT NULL,
+ file_size BIGINT UNSIGNED NOT NULL,
+ page_count INT UNSIGNED NOT NULL DEFAULT 0,
+ status ENUM('ready','invalid','deleted') NOT NULL DEFAULT 'ready',
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_documents_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ INDEX idx_documents_user(user_id, created_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS source_pages (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ document_id BIGINT UNSIGNED NOT NULL,
+ user_id BIGINT UNSIGNED NOT NULL,
+ source_page_number INT UNSIGNED NOT NULL,
+ label VARCHAR(255) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_pages_document FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+ CONSTRAINT fk_pages_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ UNIQUE KEY uq_source_page(document_id, source_page_number)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS edit_plans (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ plan_name VARCHAR(190) NOT NULL DEFAULT 'Kế hoạch chưa đặt tên',
+ plan_json LONGTEXT NOT NULL,
+ version_no INT UNSIGNED NOT NULL DEFAULT 1,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ CONSTRAINT fk_plans_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ INDEX idx_plans_user(user_id, updated_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS export_jobs (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ plan_id BIGINT UNSIGNED NULL,
+ plan_snapshot LONGTEXT NOT NULL,
+ status ENUM('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
+ error_message TEXT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ completed_at TIMESTAMP NULL,
+ CONSTRAINT fk_jobs_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_jobs_plan FOREIGN KEY(plan_id) REFERENCES edit_plans(id) ON DELETE SET NULL,
+ INDEX idx_jobs_user(user_id, created_at)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS outputs (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ job_id BIGINT UNSIGNED NOT NULL,
+ user_id BIGINT UNSIGNED NOT NULL,
+ output_name VARCHAR(255) NOT NULL,
+ stored_name VARCHAR(255) NOT NULL,
+ file_size BIGINT UNSIGNED NOT NULL,
+ page_map LONGTEXT NOT NULL,
+ expires_at DATETIME NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_outputs_job FOREIGN KEY(job_id) REFERENCES export_jobs(id) ON DELETE CASCADE,
+ CONSTRAINT fk_outputs_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ INDEX idx_outputs_user(user_id, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_code VARCHAR(100) NOT NULL UNIQUE,
+  user_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(12, 2) NOT NULL,
+  duration_days INT UNSIGNED NOT NULL DEFAULT 30,
+  plan_name VARCHAR(190) NOT NULL DEFAULT 'Gói Pro 1 Tháng',
+  status ENUM('PENDING', 'SUCCESS', 'CANCELLED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+  payment_method VARCHAR(50) DEFAULT 'PAYOS',
+  payment_reference VARCHAR(190) NULL,
+  raw_webhook_data JSON NULL,
+  paid_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_orders_status (status),
+  INDEX idx_orders_code (order_code)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(100) PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;

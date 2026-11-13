@@ -1,0 +1,2 @@
+[2026-10-28 18:36:00] [INFO] Thanh toán thành công đơn hàng 1793218959 cho user #6. VIP đến: 2026-11-27 18:36:00 {"order_code":"1793218959","user_id":6,"duration_days":30,"vip_expires_at":"2026-11-27 18:36:00","amount":99000}
+[2026-10-28 18:36:00] [INFO] Đơn hàng 1793218959 đã xử lý thành công trước đó (Idempotent response)
